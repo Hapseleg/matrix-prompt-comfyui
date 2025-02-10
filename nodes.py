@@ -2,13 +2,14 @@
 import os
 from typing import Union, BinaryIO, Dict, List, Tuple, Optional
 import time
-
+import itertools
+import math
 #  ComfyUI Modules
 import folder_paths
 from comfy.utils import ProgressBar
 
 #  Your Modules
-from .modules.calculator import CalculatorModel
+#from .modules.calculator import CalculatorModel
 
 
 #  Basic practice to get paths from ComfyUI
@@ -19,134 +20,54 @@ custom_nodes_output_dir = os.path.join(folder_paths.get_output_directory(), "my-
 
 #  These are example nodes that only contains basic functionalities with some comments.
 #  If you need detailed explanation, please refer to : https://docs.comfy.org/essentials/custom_node_walkthrough
-#  First Node:
-class MyModelLoader:
-    #  Define the input parameters of the node here.
-    @classmethod
-    def INPUT_TYPES(s):
-        my_models = ["Model A", "Model B", "Model C"]
 
+class MatrixPromptList:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(self):
         return {
-            #  If the key is "required", the value must be filled.
             "required": {
-                #  `my_models` is the list, so it will be shown as a dropdown menu in the node. ( So that user can select one of them. )
-                #  You must provide the value in the tuple format. e.g. ("value",) or (3,) or ([1, 2],) etc.
-                "model": (my_models,),
-                "device": (['cuda', 'cpu', 'auto'],),
-            },
-            #  If the key is "optional", the value is optional.
-            "optional": {
-                "compute_type": (['float32', 'float16'],),
+                "STRING": ("STRING", {"multiline": True}),
+                "delimiter": ("STRING", {"default": "|"}),
+                "put_at_start": ("BOOLEAN", {"default": True})
             }
         }
+    
+    TITLE = "Matrix prompt list"
+    RETURN_TYPES = ("STRING", "LIST", "INT", "INT", "INT")
+    RETURN_NAMES = ("STRING", "LIST", "length", "column_count", "row_count")
+    OUTPUT_IS_LIST = (True, False, False, False, False,)
+    FUNCTION = "run"
+    CATEGORY = "utils"
 
-    #  Define these constants inside the node.
-    #  `RETURN_TYPES` is important, as it limits the parameter types that can be passed to the next node, in `INPUT_TYPES()` above.
-    RETURN_TYPES = ("MY_MODEL",)
-    RETURN_NAMES = ("my_model",)
-    #  `FUNCTION` is the function name that will be called in the node.
-    FUNCTION = "load_model"
-    #  `CATEGORY` is the category name that will be used when user searches the node.
-    CATEGORY = "CustomNodesTemplate"
+    def run(self, STRING: str, delimiter: str, put_at_start: bool):
+        
+        # credit goes to automatic1111 for this code
+        # https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/scripts/prompt_matrix.py#L73
+        
+        all_prompts = []
+        prompt_matrix_parts = STRING.split(delimiter)
+        combination_count = 2 ** (len(prompt_matrix_parts) - 1)
+        for combination_num in range(combination_count):
+            selected_prompts = [text.strip().strip(',') for n, text in enumerate(prompt_matrix_parts[1:]) if combination_num & (1 << n)]
+            if put_at_start:
+                selected_prompts = selected_prompts + [prompt_matrix_parts[0]]
+            else:
+                selected_prompts = [prompt_matrix_parts[0]] + selected_prompts
 
-    #  In the function, use same parameter names as you specified in `INPUT_TYPES()`
-    def load_model(self,
-                   model: str,
-                   device: str,
-                   compute_type: Optional[str] = None,
-                   ) -> Tuple[CalculatorModel]:
-        calculator_model = CalculatorModel()
-        calculator_model.load_model(model, device, compute_type)
+            all_prompts.append(delimiter.join(selected_prompts))
+        
+        
+        # https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py#L36
+        rows = math.floor(math.sqrt(combination_count))
+        print(rows)
 
-        #  You can use `comfy.utils.ProgressBar` to show the progress of the process.
-        #  First, initialize the total amount of the process.
-        total_steps = 5
-        comfy_pbar = ProgressBar(total_steps)
-        #  Then, update the progress.
-        for i in range(1, total_steps):
-            time.sleep(1)
-            comfy_pbar.update(i)  #  Alternatively, you can use `comfy_pbar.update_absolute(value)` to update the progress with absolute value.
-
-        #  Return the model as a tuple.
-        return (calculator_model, )
-
-
-#  Second Node
-class CalculatePlus:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "model": ("MY_MODEL", ),
-            },
-            #  Specify the parameters with type and default value.
-            "optional": {
-                "a": ("INT", {"default": 5}),
-                "b": ("INT", {"default": 10}),
-            }
-        }
-
-    RETURN_TYPES = ("INT",)
-    RETURN_NAMES = ("plus_value",)
-    FUNCTION = "plus"
-    CATEGORY = "CustomNodesTemplate"
-
-    def plus(self,
-             model: CalculatorModel,
-             a: Optional[int],
-             b: Optional[int],
-             ) -> Tuple[int]:
-        result = model.plus(a, b)
-        return (result, )
-
-
-
-#  Third Node
-class CalculateMinus:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "model": ("MY_MODEL", ),
-                "a": ("INT", ),
-            },
-            "optional": {
-                "b": ("INT", {"default": 10}),
-            }
-        }
-
-    RETURN_TYPES = ("INT",)
-    RETURN_NAMES = ("minus_value",)
-    FUNCTION = "minus"
-    CATEGORY = "CustomNodesTemplate"
-
-    def minus(self,
-             model: CalculatorModel,
-             a: Optional[int],
-             b: Optional[int],
-             ) -> Tuple[int]:
-        result = model.minus(a, b)
-        return (result, )
-
-
-
-#  Output Node
-class ExampleOutputNode:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "value": ("INT", ),
-            },
-        }
-
-    #  If the node is output node, set this to True.
-    OUTPUT_NODE = True
-    RETURN_TYPES = ("INT",)
-    RETURN_NAMES = ("int",)
-    FUNCTION = "result"
-    CATEGORY = "CustomNodesTemplate"
-
-    def result(self,
-               value: int,) -> Tuple[int]:
-        return (value, )
+        while combination_count % rows != 0:
+            rows -= 1
+        print(rows)
+        cols = math.ceil(combination_count / rows)
+        print(cols)
+        
+        return (all_prompts, all_prompts, combination_count, cols, rows)
