@@ -16,10 +16,10 @@ https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/features#prompt-mat
   - returns column count, use it for a grid
 - row_count
   - returns row count, use it for a grid
-
+![image](https://github.com/user-attachments/assets/b73d01fb-bf46-417b-ae35-f7c4157f78cc)
 
 You can find it under "utils"
 ![image](https://github.com/user-attachments/assets/896c66ac-1735-4dbd-b424-62bf921529ec)
 
 
-![image](https://github.com/user-attachments/assets/b73d01fb-bf46-417b-ae35-f7c4157f78cc)
+
